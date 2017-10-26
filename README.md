@@ -1,3 +1,3 @@
-High performance Connection MyBatis SQL Mapper Framework for Java
+Add high performance Connection on mybatis
 =====================================
-在mybatis原有基础上添加了高效Connection池管理
+在借鉴HikariCP的基础上，添加了高效Connection池管理
