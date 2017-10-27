@@ -5,9 +5,7 @@ import org.apache.ibatis.exceptions.IbatisException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.SynchronousQueue;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 
@@ -18,32 +16,38 @@ import static java.lang.Thread.yield;
  */
 public class HConnectionPooled {
     private CopyOnWriteArrayList<HConnectionEntry> pooledList;
-    private DataSourceConfig dataSourceConfig;
+    private HDataSourceConfig hDataSourceConfig;
     private HPooledDataSource hPooledDataSource;
     private AtomicIntegerFieldUpdater<HConnectionEntry> entryUpdater = AtomicIntegerFieldUpdater.newUpdater(HConnectionEntry.class, "state");
     private SynchronousQueue<HConnectionEntry> queue;
     private AtomicInteger waiters;
+    private ScheduledExecutorService scheduledExecutorService;
+    private RecycleConnectionService RECYCLE_CONNECTION_SERVICE;
 
     public HConnectionPooled(HPooledDataSource hPooledDataSource) {
         this.hPooledDataSource = hPooledDataSource;
-        this.dataSourceConfig = hPooledDataSource.getDataSourceConfig();
+        this.hDataSourceConfig = hPooledDataSource.getHDataSourceConfig();
         init();
     }
 
     private void init() {
         pooledList = new CopyOnWriteArrayList<>();
         try {
-            Class.forName(dataSourceConfig.getDriverName());
+            Class.forName(hDataSourceConfig.getDriverName());
         } catch (ClassNotFoundException classNotFoundException) {
             throw new IbatisException("find driver class failed!");
         }
 
         queue = new SynchronousQueue<>();
         waiters = new AtomicInteger();
+        scheduledExecutorService = new ScheduledThreadPoolExecutor(1);
+        RECYCLE_CONNECTION_SERVICE = new RecycleConnectionService(this);
+        scheduledExecutorService.scheduleAtFixedRate(RECYCLE_CONNECTION_SERVICE, 500, 30_000, TimeUnit.MILLISECONDS);
+
     }
 
     public Connection fetchConnection() {
-        long connectionTimeOut = dataSourceConfig.getConnectionTimeOut(), timeOut = connectionTimeOut;
+        long connectionTimeOut = hDataSourceConfig.getConnectionTimeOut(), timeOut = connectionTimeOut;
         try {
             waiters.incrementAndGet();
 
@@ -81,8 +85,8 @@ public class HConnectionPooled {
 
     //创建Connection比较耗时
     public void createConnection() throws SQLException {
-        Connection rawConnection = DriverManager.getConnection(dataSourceConfig.getUrl(), dataSourceConfig.getUserName(), dataSourceConfig.getPassword());
-        HConnectionEntry hConnectionEntry = new HConnectionEntry(rawConnection);
+        Connection rawConnection = DriverManager.getConnection(hDataSourceConfig.getUrl(), hDataSourceConfig.getUserName(), hDataSourceConfig.getPassword());
+        HConnectionEntry hConnectionEntry = new HConnectionEntry(rawConnection, this);
         pooledList.add(hConnectionEntry);
 
         if (waiters.get() > 0 && queue.offer(hConnectionEntry)) {
@@ -90,4 +94,30 @@ public class HConnectionPooled {
         }
     }
 
+    //关闭Connection，对Connection资源进行回收
+    public void recycleConnection(HConnectionEntry hConnectionEntry) {
+        entryUpdater.set(hConnectionEntry, HConnectionState.NOT_IN_USED);
+        hConnectionEntry.setStartIdleTime(System.currentTimeMillis());
+    }
+
+    public void closeConnection(HConnectionEntry hConnectionEntry) {
+        if (entryUpdater.compareAndSet(hConnectionEntry, HConnectionState.NOT_IN_USED, HConnectionState.IN_RECYCLE)) {
+            pooledList.remove(hConnectionEntry);
+
+            try {
+                hConnectionEntry.getDelegate().close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+
+    }
+
+    public CopyOnWriteArrayList<HConnectionEntry> getPooledList() {
+        return pooledList;
+    }
+
+    public HDataSourceConfig gethDataSourceConfig() {
+        return hDataSourceConfig;
+    }
 }

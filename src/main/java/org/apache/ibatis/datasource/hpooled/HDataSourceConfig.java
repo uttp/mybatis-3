@@ -3,7 +3,7 @@ package org.apache.ibatis.datasource.hpooled;
 /**
  * Created by zhangyehui on 2017/10/25.
  */
-public class DataSourceConfig {
+public class HDataSourceConfig {
     private String url;
     private String userName;
     private String password;
@@ -14,11 +14,11 @@ public class DataSourceConfig {
     private long longestLiveTime;
     private long longestIdleTime;
 
-    public DataSourceConfig() {
+    public HDataSourceConfig() {
 
     }
 
-    public DataSourceConfig(String url, String userName, String password) {
+    public HDataSourceConfig(String url, String userName, String password) {
         this.url = url;
         this.userName = userName;
         this.password = password;

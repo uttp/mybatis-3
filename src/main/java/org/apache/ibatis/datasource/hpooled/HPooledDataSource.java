@@ -12,19 +12,19 @@ import java.util.logging.Logger;
  * Created by zhangyehui on 2017/10/25.
  */
 public class HPooledDataSource implements DataSource {
-    private DataSourceConfig dataSourceConfig;
+    private HDataSourceConfig HDataSourceConfig;
     private HConnectionPooled hConnectionPooled;
     private BlockingQueue<Runnable> blockingQueue;
     private ThreadPoolExecutor createPoolExecutor;
 
-    public HPooledDataSource(DataSourceConfig dataSourceConfig) {
-        this.dataSourceConfig = dataSourceConfig;
+    public HPooledDataSource(HDataSourceConfig HDataSourceConfig) {
+        this.HDataSourceConfig = HDataSourceConfig;
         init();
     }
 
     private void init() {
         hConnectionPooled = new HConnectionPooled(this);
-        int poolSize = dataSourceConfig.getPoolSize();
+        int poolSize = HDataSourceConfig.getPoolSize();
         blockingQueue = new LinkedBlockingQueue<>(poolSize);
         createPoolExecutor = new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, blockingQueue);
     }
@@ -36,8 +36,11 @@ public class HPooledDataSource implements DataSource {
 
     @Override
     public Connection getConnection() throws SQLException {
-
-        return null;
+        Connection connection = hConnectionPooled.fetchConnection();
+        if (null == connection) {
+            throw new SQLException("connection timeout");
+        }
+        return hConnectionPooled.fetchConnection();
     }
 
     @Override
@@ -80,11 +83,11 @@ public class HPooledDataSource implements DataSource {
         return null;
     }
 
-    public DataSourceConfig getDataSourceConfig() {
-        return dataSourceConfig;
+    public HDataSourceConfig getHDataSourceConfig() {
+        return HDataSourceConfig;
     }
 
-    public void setDataSourceConfig(DataSourceConfig dataSourceConfig) {
-        this.dataSourceConfig = dataSourceConfig;
+    public void setHDataSourceConfig(HDataSourceConfig HDataSourceConfig) {
+        this.HDataSourceConfig = HDataSourceConfig;
     }
 }

@@ -9,13 +9,19 @@ import java.util.concurrent.Executor;
  * Created by zhangyehui on 2017/10/25.
  */
 public class HConnectionEntry implements Connection {
-    private int state;
+    public volatile int state;
 
     private Connection delegate;
 
-    public HConnectionEntry(Connection connection) {
+    private HConnectionPooled connectionPooled;
+
+    private long startIdleTime;
+
+    public HConnectionEntry(Connection connection, HConnectionPooled connectionPooled) {
         delegate = connection;
-        state = 0;
+        state = HConnectionState.NOT_IN_USED;
+        this.connectionPooled = connectionPooled;
+        startIdleTime = System.currentTimeMillis();
     }
 
     @Override
@@ -60,7 +66,7 @@ public class HConnectionEntry implements Connection {
 
     @Override
     public void close() throws SQLException {
-        delegate.close();
+        connectionPooled.recycleConnection(this);
     }
 
     @Override
@@ -286,5 +292,37 @@ public class HConnectionEntry implements Connection {
     @Override
     public boolean isWrapperFor(Class<?> iface) throws SQLException {
         return delegate.isWrapperFor(iface);
+    }
+
+    public int getState() {
+        return state;
+    }
+
+    public void setState(int state) {
+        this.state = state;
+    }
+
+    public Connection getDelegate() {
+        return delegate;
+    }
+
+    public void setDelegate(Connection delegate) {
+        this.delegate = delegate;
+    }
+
+    public HConnectionPooled getConnectionPooled() {
+        return connectionPooled;
+    }
+
+    public void setConnectionPooled(HConnectionPooled connectionPooled) {
+        this.connectionPooled = connectionPooled;
+    }
+
+    public long getStartIdleTime() {
+        return startIdleTime;
+    }
+
+    public void setStartIdleTime(long startIdleTime) {
+        this.startIdleTime = startIdleTime;
     }
 }
