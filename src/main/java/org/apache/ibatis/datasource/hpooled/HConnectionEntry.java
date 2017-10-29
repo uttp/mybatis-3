@@ -9,7 +9,7 @@ import java.util.concurrent.Executor;
  * Created by zhangyehui on 2017/10/25.
  */
 public class HConnectionEntry implements Connection {
-    public volatile int state;
+    protected volatile int state;
 
     private Connection delegate;
 
@@ -19,7 +19,7 @@ public class HConnectionEntry implements Connection {
 
     public HConnectionEntry(Connection connection, HConnectionPooled connectionPooled) {
         delegate = connection;
-        state = HConnectionState.NOT_IN_USED;
+        state = HConnectionState.NOT_IN_USED.getValue();
         this.connectionPooled = connectionPooled;
         startIdleTime = System.currentTimeMillis();
     }

@@ -17,8 +17,9 @@ public class RecycleConnectionService implements Runnable {
         List<HConnectionEntry> pooledList = hConnectionPooled.getPooledList();
         long idleTimeOut = hConnectionPooled.gethDataSourceConfig().getLongestIdleTime();
         for (HConnectionEntry hConnectionEntry : pooledList) {
-            if(hConnectionEntry.getState() == HConnectionState.NOT_IN_USED && (System.currentTimeMillis() - hConnectionEntry.getStartIdleTime()) > idleTimeOut) {
-
+            if (hConnectionEntry.getState() == HConnectionState.NOT_IN_USED.getValue()
+                    && (System.currentTimeMillis() - hConnectionEntry.getStartIdleTime()) > idleTimeOut) {
+                hConnectionPooled.closeConnection(hConnectionEntry);
             }
         }
 

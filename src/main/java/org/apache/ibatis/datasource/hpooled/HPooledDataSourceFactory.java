@@ -13,6 +13,8 @@ import java.util.Properties;
  */
 public class HPooledDataSourceFactory implements DataSourceFactory {
 
+    private static final String INIT = "INIT";
+
     private HDataSourceConfig hDataSourceConfig;
 
     private DataSource dataSource;
@@ -34,13 +36,13 @@ public class HPooledDataSourceFactory implements DataSourceFactory {
                 throw new DataSourceException("Unknown DataSource property: " + propertyName);
             }
         }
-
+        hDataSourceConfig.init();
         dataSource = new HPooledDataSource(hDataSourceConfig);
     }
 
     @Override
     public DataSource getDataSource() {
-        return null;
+        return this.dataSource;
     }
 
     private Object convertValue(MetaObject metaDataSource, String propertyName, String value) {

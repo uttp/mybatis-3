@@ -5,34 +5,19 @@ import java.io.PrintWriter;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
-import java.util.concurrent.*;
 import java.util.logging.Logger;
 
 /**
  * Created by zhangyehui on 2017/10/25.
  */
 public class HPooledDataSource implements DataSource {
-    private HDataSourceConfig HDataSourceConfig;
+    private HDataSourceConfig hDataSourceConfig;
     private HConnectionPooled hConnectionPooled;
-    private BlockingQueue<Runnable> blockingQueue;
-    private ThreadPoolExecutor createPoolExecutor;
 
-    public HPooledDataSource(HDataSourceConfig HDataSourceConfig) {
-        this.HDataSourceConfig = HDataSourceConfig;
-        init();
+    public HPooledDataSource(HDataSourceConfig hDataSourceConfig) {
+        this.hDataSourceConfig = hDataSourceConfig;
+        hConnectionPooled = new HConnectionPooled(hDataSourceConfig);
     }
-
-    private void init() {
-        hConnectionPooled = new HConnectionPooled(this);
-        int poolSize = HDataSourceConfig.getPoolSize();
-        blockingQueue = new LinkedBlockingQueue<>(poolSize);
-        createPoolExecutor = new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, blockingQueue);
-    }
-
-    public void createConnection() {
-        createPoolExecutor.execute(new ConnectionCreated(hConnectionPooled));
-    }
-
 
     @Override
     public Connection getConnection() throws SQLException {
@@ -40,12 +25,12 @@ public class HPooledDataSource implements DataSource {
         if (null == connection) {
             throw new SQLException("connection timeout");
         }
-        return hConnectionPooled.fetchConnection();
+        return connection;
     }
 
     @Override
     public Connection getConnection(String username, String password) throws SQLException {
-        return null;
+        return getConnection();
     }
 
     @Override
@@ -83,11 +68,16 @@ public class HPooledDataSource implements DataSource {
         return null;
     }
 
-    public HDataSourceConfig getHDataSourceConfig() {
-        return HDataSourceConfig;
+    public HDataSourceConfig gethDataSourceConfig() {
+        return hDataSourceConfig;
     }
 
-    public void setHDataSourceConfig(HDataSourceConfig HDataSourceConfig) {
-        this.HDataSourceConfig = HDataSourceConfig;
+    public void sethDataSourceConfig(HDataSourceConfig hDataSourceConfig) {
+        this.hDataSourceConfig = hDataSourceConfig;
     }
+
+    public HConnectionPooled gethConnectionPooled() {
+        return hConnectionPooled;
+    }
+
 }
