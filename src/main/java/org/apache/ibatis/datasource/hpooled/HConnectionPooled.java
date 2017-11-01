@@ -1,6 +1,8 @@
 package org.apache.ibatis.datasource.hpooled;
 
 import org.apache.ibatis.exceptions.ConnectionCloseException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -15,6 +17,8 @@ import static java.lang.Thread.yield;
  * Created by zhangyehui on 2017/10/25.
  */
 public class HConnectionPooled {
+    private static Logger LOGGER = LoggerFactory.getLogger(HConnectionPooled.class);
+
     /**
      * 连接池
      */
@@ -61,7 +65,6 @@ public class HConnectionPooled {
 
     private void init() {
         pooledList = new CopyOnWriteArrayList<>();
-
         queue = new SynchronousQueue<>();
         waiters = new AtomicInteger();
         scheduleCleanIdleExecutorService = new ScheduledThreadPoolExecutor(1);
@@ -74,14 +77,13 @@ public class HConnectionPooled {
     public Connection fetchConnection() {
         long connectionTimeOut = hDataSourceConfig.getConnectionTimeOut(), timeOut = connectionTimeOut;
         try {
-            waiters.incrementAndGet();
-
+            int waiterCount = waiters.incrementAndGet();
             do {
                 long startTime = System.currentTimeMillis();
                 for (HConnectionEntry connectionEntry : pooledList) {
                     if (entryUpdater.compareAndSet(connectionEntry, HConnectionState.NOT_IN_USED.getValue(),
                             HConnectionState.IN_USED.getValue())) {
-                        if (waiters.get() > 1) {
+                        if (waiterCount > 1) {
                             createNewConnection();
                         }
                         return connectionEntry;
@@ -105,23 +107,28 @@ public class HConnectionPooled {
         } finally {
             waiters.decrementAndGet();
         }
-
-
         return null;
     }
 
     public void createNewConnection() {
-        createPoolExecutor.execute(new ConnectionCreated(this));
+        createPoolExecutor.execute(() -> {
+            try {
+                this.createConnection();
+            } catch (SQLException e) {
+                LOGGER.error("create connection failed ", e);
+            }
+        });
     }
 
     //创建Connection比较耗时
     public void createConnection() throws SQLException {
-        Connection rawConnection = DriverManager.getConnection(hDataSourceConfig.getUrl(), hDataSourceConfig.getUserName(), hDataSourceConfig.getPassword());
-        HConnectionEntry hConnectionEntry = new HConnectionEntry(rawConnection, this);
-        pooledList.add(hConnectionEntry);
-
-        if (waiters.get() > 0 && queue.offer(hConnectionEntry)) {
-            yield();
+        if (pooledList.size() > hDataSourceConfig.getPoolSize() + waiters.get()) {
+            Connection rawConnection = DriverManager.getConnection(hDataSourceConfig.getUrl(), hDataSourceConfig.getUserName(), hDataSourceConfig.getPassword());
+            HConnectionEntry hConnectionEntry = new HConnectionEntry(rawConnection, this);
+            pooledList.add(hConnectionEntry);
+            if (waiters.get() > 0 && queue.offer(hConnectionEntry)) {
+                yield();
+            }
         }
     }
 
