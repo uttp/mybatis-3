@@ -1,6 +1,8 @@
 package org.apache.ibatis.datasource.hpooled;
 
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executor;
@@ -15,6 +17,8 @@ public class HConnectionEntry implements Connection {
 
     private HConnectionPooled connectionPooled;
 
+    private List<Statement> statementList;
+
     private long startIdleTime;
 
     public HConnectionEntry(Connection connection, HConnectionPooled connectionPooled) {
@@ -22,21 +26,28 @@ public class HConnectionEntry implements Connection {
         state = HConnectionState.NOT_IN_USED.getValue();
         this.connectionPooled = connectionPooled;
         startIdleTime = System.currentTimeMillis();
+        statementList = new ArrayList<>();
     }
 
     @Override
     public Statement createStatement() throws SQLException {
-        return delegate.createStatement();
+        Statement statement = delegate.createStatement();
+        statementList.add(statement);
+        return statement;
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql) throws SQLException {
-        return delegate.prepareStatement(sql);
+        PreparedStatement preparedStatement = delegate.prepareStatement(sql);
+        statementList.add(preparedStatement);
+        return preparedStatement;
     }
 
     @Override
     public CallableStatement prepareCall(String sql) throws SQLException {
-        return delegate.prepareCall(sql);
+        CallableStatement callableStatement = delegate.prepareCall(sql);
+        statementList.add(callableStatement);
+        return callableStatement;
     }
 
     @Override
@@ -66,6 +77,12 @@ public class HConnectionEntry implements Connection {
 
     @Override
     public void close() throws SQLException {
+        for (Statement currentStatement : statementList) {
+            if (!currentStatement.isClosed()) {
+                currentStatement.close();
+            }
+        }
+        statementList.clear();
         connectionPooled.recycleConnection(this);
     }
 
@@ -121,17 +138,23 @@ public class HConnectionEntry implements Connection {
 
     @Override
     public Statement createStatement(int resultSetType, int resultSetConcurrency) throws SQLException {
-        return delegate.createStatement(resultSetType, resultSetConcurrency);
+        Statement statement = delegate.createStatement(resultSetType, resultSetConcurrency);
+        statementList.add(statement);
+        return statement;
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency) throws SQLException {
-        return delegate.prepareStatement(sql, resultSetType, resultSetConcurrency);
+        PreparedStatement preparedStatement = delegate.prepareStatement(sql, resultSetType, resultSetConcurrency);
+        statementList.add(preparedStatement);
+        return preparedStatement;
     }
 
     @Override
     public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency) throws SQLException {
-        return delegate.prepareCall(sql, resultSetType, resultSetConcurrency);
+        CallableStatement callableStatement = delegate.prepareCall(sql, resultSetType, resultSetConcurrency);
+        statementList.add(callableStatement);
+        return callableStatement;
     }
 
     @Override
@@ -176,32 +199,44 @@ public class HConnectionEntry implements Connection {
 
     @Override
     public Statement createStatement(int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
-        return delegate.createStatement(resultSetType, resultSetConcurrency, resultSetHoldability);
+        Statement statement = delegate.createStatement(resultSetType, resultSetConcurrency, resultSetHoldability);
+        statementList.add(statement);
+        return statement;
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
-        return delegate.prepareStatement(sql, resultSetType, resultSetConcurrency, resultSetHoldability);
+        PreparedStatement preparedStatement = delegate.prepareStatement(sql, resultSetType, resultSetConcurrency, resultSetHoldability);
+        statementList.add(preparedStatement);
+        return preparedStatement;
     }
 
     @Override
     public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
-        return delegate.prepareCall(sql, resultSetType, resultSetConcurrency, resultSetHoldability);
+        CallableStatement callableStatement = delegate.prepareCall(sql, resultSetType, resultSetConcurrency, resultSetHoldability);
+        statementList.add(callableStatement);
+        return callableStatement;
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, int autoGeneratedKeys) throws SQLException {
-        return delegate.prepareStatement(sql, autoGeneratedKeys);
+        PreparedStatement preparedStatement = delegate.prepareStatement(sql, autoGeneratedKeys);
+        statementList.add(preparedStatement);
+        return preparedStatement;
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, int[] columnIndexes) throws SQLException {
-        return delegate.prepareStatement(sql, columnIndexes);
+        PreparedStatement preparedStatement = delegate.prepareStatement(sql, columnIndexes);
+        statementList.add(preparedStatement);
+        return preparedStatement;
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, String[] columnNames) throws SQLException {
-        return delegate.prepareStatement(sql, columnNames);
+        PreparedStatement preparedStatement = delegate.prepareStatement(sql, columnNames);
+        statementList.add(preparedStatement);
+        return preparedStatement;
     }
 
     @Override

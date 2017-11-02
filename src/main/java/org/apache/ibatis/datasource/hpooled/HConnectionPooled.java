@@ -122,7 +122,7 @@ public class HConnectionPooled {
 
     //创建Connection比较耗时
     public void createConnection() throws SQLException {
-        if (pooledList.size() > hDataSourceConfig.getPoolSize() + waiters.get()) {
+        if (pooledList.size() + blockingQueue.size() < hDataSourceConfig.getPoolSize()) {
             Connection rawConnection = DriverManager.getConnection(hDataSourceConfig.getUrl(), hDataSourceConfig.getUserName(), hDataSourceConfig.getPassword());
             HConnectionEntry hConnectionEntry = new HConnectionEntry(rawConnection, this);
             pooledList.add(hConnectionEntry);
@@ -142,7 +142,10 @@ public class HConnectionPooled {
         if (entryUpdater.compareAndSet(hConnectionEntry, HConnectionState.NOT_IN_USED.getValue(), HConnectionState.IN_RECYCLE.getValue())) {
             pooledList.remove(hConnectionEntry);
             try {
-                hConnectionEntry.getDelegate().close();
+                Connection delegate = hConnectionEntry.getDelegate();
+                if (!delegate.isClosed()) {
+                    delegate.close();
+                }
             } catch (SQLException e) {
                 throw new ConnectionCloseException("close failed", e);
             }
