@@ -1,5 +1,6 @@
 package org.apache.ibatis.datasource.hpooled;
 
+import org.apache.ibatis.datasource.hpooled.exception.CreateConnectionException;
 import org.apache.ibatis.exceptions.ConnectionCloseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -159,6 +160,16 @@ public class HConnectionPooled {
 
     public HDataSourceConfig gethDataSourceConfig() {
         return hDataSourceConfig;
+    }
+
+    public Connection newConnection() throws CreateConnectionException {
+        try {
+            Connection connection = DriverManager.getConnection(hDataSourceConfig.getUrl(),
+                    hDataSourceConfig.getUserName(), hDataSourceConfig.getPassword());
+            return connection;
+        } catch (SQLException e) {
+            throw new CreateConnectionException(e);
+        }
     }
 
 }

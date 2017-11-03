@@ -83,9 +83,9 @@ class PooledConnection implements InvocationHandler {
   }
 
   /*
-   * Getter for the proxy for the connection
+   * Getter for the javassit for the connection
    *
-   * @return The proxy
+   * @return The javassit
    */
   public Connection getProxyConnection() {
     return proxyConnection;
@@ -224,7 +224,7 @@ class PooledConnection implements InvocationHandler {
   /*
    * Required for InvocationHandler implementation.
    *
-   * @param proxy  - not used
+   * @param javassit  - not used
    * @param method - the method to be executed
    * @param args   - the parameters to be passed to the method
    * @see java.lang.reflect.InvocationHandler#invoke(Object, java.lang.reflect.Method, Object[])
