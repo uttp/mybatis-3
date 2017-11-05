@@ -44,7 +44,7 @@ public class HConnectionInvokerHandler implements InvocationHandler {
         }
 
         if (METHOD_NAME_CLOSE.equals(method.getName())) {
-
+            hConnectionEntry.recycleConnection();
         }
 
         return method.invoke(delegate, args);
