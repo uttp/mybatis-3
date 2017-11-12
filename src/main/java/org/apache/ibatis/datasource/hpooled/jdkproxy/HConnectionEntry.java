@@ -1,10 +1,10 @@
 package org.apache.ibatis.datasource.hpooled.jdkproxy;
 
-import net.sf.cglib.proxy.Proxy;
 import org.apache.ibatis.datasource.hpooled.HConnectionPooled;
 import org.apache.ibatis.datasource.hpooled.HConnectionState;
 import org.apache.ibatis.datasource.hpooled.exception.CloseStatementException;
 
+import java.lang.reflect.Proxy;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -20,9 +20,10 @@ public class HConnectionEntry {
     private volatile int state;
 
     private HConnectionPooled hConnectionPooled;
-    private Connection deleagteConnection;
+    private Connection delegateConnection;
     private Connection realConnection;
     private List<Statement> statements;
+    private long idleStartTime;
 
     public HConnectionEntry(HConnectionPooled hConnectionPooled) {
         this.hConnectionPooled = hConnectionPooled;
@@ -33,17 +34,24 @@ public class HConnectionEntry {
         state = HConnectionState.NOT_IN_USED.getValue();
         realConnection = hConnectionPooled.newConnection();
         statements = new ArrayList<>();
-        deleagteConnection = (Connection) Proxy.newProxyInstance(this.getClass().getClassLoader(), new Class[]{Connection.class},
+        idleStartTime = System.currentTimeMillis();
+        delegateConnection = (Connection) Proxy.newProxyInstance(this.getClass().getClassLoader(), new Class[]{Connection.class},
                 new HConnectionInvokerHandler(this, realConnection, statements));
     }
 
     public Connection getConnection() {
-        return deleagteConnection;
+        return delegateConnection;
     }
 
-    public void recycleConnection() {
-        closeStatements();
-        atomicState.compareAndSet(this, HConnectionState.IN_USED.getValue(), HConnectionState.NOT_IN_USED.getValue());
+    public synchronized void recycleConnection() {
+        if (atomicState.compareAndSet(this, HConnectionState.IN_USED.getValue(), HConnectionState.NOT_IN_USED.getValue())) {
+            idleStartTime = System.currentTimeMillis();
+            closeStatements();
+        }
+    }
+
+    public boolean compareAndSet(int expectValue, int newValue) {
+        return atomicState.compareAndSet(this, expectValue, newValue);
     }
 
     public void close() {
@@ -69,5 +77,19 @@ public class HConnectionEntry {
         }
     }
 
+    public long getIdleStartTime() {
+        return idleStartTime;
+    }
 
+    public void setIdleStartTime(long idleStartTime) {
+        this.idleStartTime = idleStartTime;
+    }
+
+    public int getState() {
+        return state;
+    }
+
+    public void setState(int state) {
+        this.state = state;
+    }
 }

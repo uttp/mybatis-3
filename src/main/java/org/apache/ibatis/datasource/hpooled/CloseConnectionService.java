@@ -1,14 +1,17 @@
 package org.apache.ibatis.datasource.hpooled;
 
+
+import org.apache.ibatis.datasource.hpooled.jdkproxy.HConnectionEntry;
+
 import java.util.List;
 
 /**
  * Created by zhangyehui on 2017/10/26.
  */
-public class RecycleConnectionService implements Runnable {
+public class CloseConnectionService implements Runnable {
     private HConnectionPooled hConnectionPooled;
 
-    public RecycleConnectionService(HConnectionPooled hConnectionPooled) {
+    public CloseConnectionService(HConnectionPooled hConnectionPooled) {
         this.hConnectionPooled = hConnectionPooled;
     }
 
@@ -18,7 +21,7 @@ public class RecycleConnectionService implements Runnable {
         long idleTimeOut = hConnectionPooled.gethDataSourceConfig().getLongestIdleTime();
         for (HConnectionEntry hConnectionEntry : pooledList) {
             if (hConnectionEntry.getState() == HConnectionState.NOT_IN_USED.getValue()
-                    && (System.currentTimeMillis() - hConnectionEntry.getStartIdleTime()) > idleTimeOut) {
+                    && (System.currentTimeMillis() - hConnectionEntry.getIdleStartTime()) > idleTimeOut) {
                 hConnectionPooled.closeConnection(hConnectionEntry);
             }
         }

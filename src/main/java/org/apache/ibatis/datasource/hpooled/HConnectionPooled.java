@@ -1,6 +1,7 @@
 package org.apache.ibatis.datasource.hpooled;
 
 import org.apache.ibatis.datasource.hpooled.exception.CreateConnectionException;
+import org.apache.ibatis.datasource.hpooled.jdkproxy.HConnectionEntry;
 import org.apache.ibatis.exceptions.ConnectionCloseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,7 +11,6 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 
 import static java.lang.Thread.yield;
 
@@ -26,11 +26,6 @@ public class HConnectionPooled {
     private CopyOnWriteArrayList<HConnectionEntry> pooledList;
 
     private HDataSourceConfig hDataSourceConfig;
-
-    /**
-     * 连接的状态, 无锁化的基础
-     */
-    private AtomicIntegerFieldUpdater<HConnectionEntry> entryUpdater = AtomicIntegerFieldUpdater.newUpdater(HConnectionEntry.class, "state");
 
     /**
      * 用户获取连接
@@ -57,7 +52,7 @@ public class HConnectionPooled {
      */
     private ScheduledExecutorService scheduleCleanIdleExecutorService;
 
-    private RecycleConnectionService RECYCLE_CONNECTION_SERVICE = new RecycleConnectionService(this);
+    private CloseConnectionService RECYCLE_CONNECTION_SERVICE = new CloseConnectionService(this);
 
     public HConnectionPooled(HDataSourceConfig hDataSourceConfig) {
         this.hDataSourceConfig = hDataSourceConfig;
@@ -82,21 +77,20 @@ public class HConnectionPooled {
             do {
                 long startTime = System.currentTimeMillis();
                 for (HConnectionEntry connectionEntry : pooledList) {
-                    if (entryUpdater.compareAndSet(connectionEntry, HConnectionState.NOT_IN_USED.getValue(),
-                            HConnectionState.IN_USED.getValue())) {
+                    if (connectionEntry.compareAndSet(HConnectionState.NOT_IN_USED.getValue(), HConnectionState.IN_USED.getValue())) {
                         if (waiterCount > 1) {
                             createNewConnection();
                         }
-                        return connectionEntry;
+                        return connectionEntry.getConnection();
                     }
                 }
 
                 createNewConnection();
 
                 HConnectionEntry connectionEntry = queue.poll(connectionTimeOut, TimeUnit.MILLISECONDS);
-                if (entryUpdater.compareAndSet(connectionEntry, HConnectionState.NOT_IN_USED.getValue(),
+                if (connectionEntry.compareAndSet(HConnectionState.NOT_IN_USED.getValue(),
                         HConnectionState.IN_USED.getValue())) {
-                    return connectionEntry;
+                    return connectionEntry.getConnection();
                 }
 
                 timeOut = timeOut - (System.currentTimeMillis() - startTime);
@@ -124,8 +118,7 @@ public class HConnectionPooled {
     //创建Connection比较耗时
     public void createConnection() throws SQLException {
         if (pooledList.size() + blockingQueue.size() < hDataSourceConfig.getPoolSize()) {
-            Connection rawConnection = DriverManager.getConnection(hDataSourceConfig.getUrl(), hDataSourceConfig.getUserName(), hDataSourceConfig.getPassword());
-            HConnectionEntry hConnectionEntry = new HConnectionEntry(rawConnection, this);
+            HConnectionEntry hConnectionEntry = new HConnectionEntry(this);
             pooledList.add(hConnectionEntry);
             if (waiters.get() > 0 && queue.offer(hConnectionEntry)) {
                 yield();
@@ -133,17 +126,11 @@ public class HConnectionPooled {
         }
     }
 
-    //关闭Connection，对Connection资源进行回收
-    public void recycleConnection(HConnectionEntry hConnectionEntry) {
-        entryUpdater.set(hConnectionEntry, HConnectionState.NOT_IN_USED.getValue());
-        hConnectionEntry.setStartIdleTime(System.currentTimeMillis());
-    }
-
     public void closeConnection(HConnectionEntry hConnectionEntry) {
-        if (entryUpdater.compareAndSet(hConnectionEntry, HConnectionState.NOT_IN_USED.getValue(), HConnectionState.IN_RECYCLE.getValue())) {
+        if (hConnectionEntry.compareAndSet(HConnectionState.NOT_IN_USED.getValue(), HConnectionState.IN_RECYCLE.getValue())) {
             pooledList.remove(hConnectionEntry);
             try {
-                Connection delegate = hConnectionEntry.getDelegate();
+                Connection delegate = hConnectionEntry.getConnection();
                 if (!delegate.isClosed()) {
                     delegate.close();
                 }

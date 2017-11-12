@@ -1,10 +1,12 @@
 package org.apache.ibatis.datasource.hpooled.jdkproxy;
 
 
-import net.sf.cglib.proxy.InvocationHandler;
-
+import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
+import java.sql.CallableStatement;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
@@ -17,7 +19,6 @@ public class HConnectionInvokerHandler implements InvocationHandler {
     private static final String METHOD_NAME_CREATE_STATEMENT = "createStatement";
     private static final String METHOD_NAME_PREPARE_STATEMENT = "prepareStatement";
     private static final String METHOD_NAME_PREPARE_CALL = "prepareCall";
-    private static final String METHOD_NAME_CLOSE = "close";
 
     private HConnectionEntry hConnectionEntry;
     private List<Statement> statements;
@@ -32,18 +33,31 @@ public class HConnectionInvokerHandler implements InvocationHandler {
 
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-        /**
-         * Collection 回收到连接池时候需要关闭statement
-         */
         if (METHOD_NAME_CREATE_STATEMENT.equals(method.getName()) ||
                 METHOD_NAME_PREPARE_STATEMENT.equals(method.getName()) ||
                 METHOD_NAME_PREPARE_CALL.equals(method.getName())) {
-            Statement statement = (Statement) method.invoke(delegate, args);
-            statements.add(statement);
-            return statement;
+            Statement realStatement = (Statement) method.invoke(delegate, args);
+            Statement delegateStatement = (Statement) Proxy.newProxyInstance(this.getClass().getClassLoader(),
+                    new Class[]{Statement.class}, new HStatementInvokerHandler(realStatement, statements));
+            statements.add(realStatement);
+            return delegateStatement;
         }
 
-        if (METHOD_NAME_CLOSE.equals(method.getName())) {
+        if (METHOD_NAME_PREPARE_STATEMENT.equals(method.getName())) {
+            PreparedStatement realStatment = (PreparedStatement) method.invoke(delegate, args);
+            PreparedStatement delegateStatement = (PreparedStatement) Proxy.newProxyInstance(this.getClass().getClassLoader(),
+                    new Class[]{PreparedStatement.class}, new HPrepareStatementInvokerHandler(realStatment, statements));
+            return delegateStatement;
+        }
+
+        if (METHOD_NAME_CREATE_STATEMENT.equals(method.getName())) {
+            CallableStatement realStatement = (CallableStatement) method.invoke(delegate, args);
+            CallableStatement delegateStatement = (CallableStatement) Proxy.newProxyInstance(this.getClass().getClassLoader(),
+                    new Class[]{CallableStatement.class}, new HCallableStatementInvokerHandler(realStatement, statements));
+            return delegateStatement;
+        }
+
+        if (HStatementConstants.CLOSE.equals(method.getName())) {
             hConnectionEntry.recycleConnection();
         }
 

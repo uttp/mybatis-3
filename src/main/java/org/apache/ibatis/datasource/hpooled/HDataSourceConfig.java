@@ -45,6 +45,16 @@ public class HDataSourceConfig {
      */
     private static Map<String, Driver> driverMap = new HashMap<>();
 
+    /**
+     * 是否自动提交
+     */
+    private boolean isAutoCommit;
+
+    /**
+     * 是否只读
+     */
+    private boolean isReadOnly;
+
     static {
         Enumeration<Driver> drivers = DriverManager.getDrivers();
         if (null != drivers) {
@@ -174,5 +184,21 @@ public class HDataSourceConfig {
 
     public void setDriverName(String driverName) {
         this.driverName = driverName;
+    }
+
+    public boolean isAutoCommit() {
+        return isAutoCommit;
+    }
+
+    public void setAutoCommit(boolean autoCommit) {
+        isAutoCommit = autoCommit;
+    }
+
+    public boolean isReadOnly() {
+        return isReadOnly;
+    }
+
+    public void setReadOnly(boolean readOnly) {
+        isReadOnly = readOnly;
     }
 }
