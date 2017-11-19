@@ -33,13 +33,27 @@ public class HConnectionInvokerHandler implements InvocationHandler {
 
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-        if (METHOD_NAME_CREATE_STATEMENT.equals(method.getName()) ||
-                METHOD_NAME_PREPARE_STATEMENT.equals(method.getName()) ||
-                METHOD_NAME_PREPARE_CALL.equals(method.getName())) {
+        if (METHOD_NAME_CREATE_STATEMENT.equals(method.getName())) {
             Statement realStatement = (Statement) method.invoke(delegate, args);
             Statement delegateStatement = (Statement) Proxy.newProxyInstance(this.getClass().getClassLoader(),
                     new Class[]{Statement.class}, new HStatementInvokerHandler(realStatement, statements));
             statements.add(realStatement);
+            return delegateStatement;
+        }
+
+        if (METHOD_NAME_PREPARE_STATEMENT.equals(method.getName())) {
+            PreparedStatement realStatement = (PreparedStatement) method.invoke(delegate, args);
+            PreparedStatement delegateStatement = (PreparedStatement) Proxy.newProxyInstance(this.getClass().getClassLoader(),
+                    new Class[]{PreparedStatement.class}, new HStatementInvokerHandler(realStatement, statements));
+            statements.add(delegateStatement);
+            return delegateStatement;
+        }
+
+        if (METHOD_NAME_PREPARE_CALL.equals(method.getName())) {
+            CallableStatement realStatement = (CallableStatement) method.invoke(delegate, args);
+            CallableStatement delegateStatement = (CallableStatement) Proxy.newProxyInstance(this.getClass().getClassLoader(),
+                    new Class[]{CallableStatement.class}, new HStatementInvokerHandler(realStatement, statements));
+            statements.add(delegateStatement);
             return delegateStatement;
         }
 

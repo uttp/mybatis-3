@@ -65,9 +65,9 @@ public class HConnectionPooled {
         waiters = new AtomicInteger();
         scheduleCleanIdleExecutorService = new ScheduledThreadPoolExecutor(1);
         scheduleCleanIdleExecutorService.scheduleAtFixedRate(RECYCLE_CONNECTION_SERVICE, 500, 10_000, TimeUnit.MILLISECONDS);
-        createPoolExecutor = new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, blockingQueue);
         int poolSize = hDataSourceConfig.getPoolSize();
         blockingQueue = new LinkedBlockingQueue<>(poolSize);
+        createPoolExecutor = new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, blockingQueue);
     }
 
     public Connection fetchConnection() {
