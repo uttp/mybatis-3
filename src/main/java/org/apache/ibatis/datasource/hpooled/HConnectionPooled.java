@@ -115,7 +115,11 @@ public class HConnectionPooled {
         });
     }
 
-    //创建Connection比较耗时
+    /**
+     * 不会存在并发问题，线程池会进行排队
+     *
+     * @throws SQLException
+     */
     public void createConnection() throws SQLException {
         if (pooledList.size() + blockingQueue.size() < hDataSourceConfig.getPoolSize()) {
             HConnectionEntry hConnectionEntry = new HConnectionEntry(this);

@@ -4,6 +4,7 @@ package org.apache.ibatis.datasource.hpooled;
  * Created by zhangyehui on 2017/10/27.
  */
 
+import org.apache.ibatis.datasource.hpooled.jdkproxy.HConnectionEntry;
 import org.junit.Test;
 
 import java.sql.*;
@@ -44,7 +45,7 @@ public class HPooledDataSourceTest {
         System.out.println("-------size : " + pooled.size() + "--------");
         for (int i = 0; i < pooled.size(); ++i) {
             HConnectionEntry hConnectionEntry = pooled.get(i);
-            System.out.println("index :" + i + " state:" + hConnectionEntry.getState() + " real connection isClosed:" + hConnectionEntry.getDelegate().isClosed());
+            System.out.println("index :" + i + " state:" + hConnectionEntry.getState() + " real connection isClosed:" + hConnectionEntry.getRealConnection().isClosed());
         }
         connection.close();
         try {
@@ -55,7 +56,7 @@ public class HPooledDataSourceTest {
         System.out.println("-------size :  " + pooled.size() + "--------");
         for (int i = 0; i < pooled.size(); ++i) {
             HConnectionEntry hConnectionEntry = pooled.get(i);
-            System.out.println("index :" + i + " state:" + hConnectionEntry.getState() + " real connection isClosed:" + hConnectionEntry.getDelegate().isClosed());
+            System.out.println("index :" + i + " state:" + hConnectionEntry.getState() + " real connection isClosed:" + hConnectionEntry.getRealConnection().isClosed());
         }
         connection.close();
     }

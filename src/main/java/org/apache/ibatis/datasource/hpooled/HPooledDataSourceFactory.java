@@ -13,8 +13,6 @@ import java.util.Properties;
  */
 public class HPooledDataSourceFactory implements DataSourceFactory {
 
-    private static final String INIT = "INIT";
-
     private HDataSourceConfig hDataSourceConfig;
 
     private DataSource dataSource;

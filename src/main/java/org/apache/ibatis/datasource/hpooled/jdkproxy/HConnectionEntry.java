@@ -92,4 +92,12 @@ public class HConnectionEntry {
     public void setState(int state) {
         this.state = state;
     }
+
+    public Connection getRealConnection() {
+        return realConnection;
+    }
+
+    public void setRealConnection(Connection realConnection) {
+        this.realConnection = realConnection;
+    }
 }
